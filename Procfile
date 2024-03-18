@@ -1,1 +1,1 @@
-web: python main.py
+web: pip install --upgrade pip && python main.py
