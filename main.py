@@ -1,56 +1,53 @@
 import interactions
-from interactions import Client, Intents, slash_command, SlashContext, OptionType, slash_option
+from interactions import Client, Intents, OptionType
 import requests
 import json
 import re
 from bs4 import BeautifulSoup
-from googleapiclient.discovery import build
-import google_auth_oauthlib.flow
-from google_auth_oauthlib.flow import InstalledAppFlow
-import googleapiclient.discovery
-import googleapiclient.errors
 import os
 from youtube_transcript_api import YouTubeTranscriptApi 
 from utils import *
 
-bot = Client(intents=Intents.DEFAULT)
+bot = interactions.Client(token=os.environ.get("DISCORD_TOKEN"))
 TOKEN = json.load(open("keys.json"))
 
-@interactions.listen()
-async def on_startup():
-    print("Bot ready.")
+# @interactions.listen()
+# async def on_startup():
+#     print("Bot ready.")
 
-@slash_command(name="my_command", description="My first command :)")
-async def my_command_function(ctx: SlashContext):
-    await ctx.send("Hello World")
+# @bot.command(name="my_command", description="My first command :)")
+# async def my_command_function(ctx: SlashContext):
+#     await ctx.send("Hello World")
 
 #Summarize command
-@slash_command(
-        name="summarize",
-        description="Generate a summary from text or a file.",
-)
-@slash_option(
-    name="num_of_words",
-    description="Number of words in the summary (between 100 and 400).",
-    required=False,
-    opt_type=OptionType.INTEGER,
-    min_value=100,
-    max_value=500
-)
-@slash_option(
-    name="text_content",
-    description="Input text or a URL.",
-    required=False,
-    opt_type=OptionType.STRING,
-)
-@slash_option(
-    name="attachment",
-    description="Upload a file with text.",
-    required=False,
-    opt_type=OptionType.ATTACHMENT,
+@bot.command(
+    name="summarize",
+    description="Generate a summary from text or a file.",
+    options=[
+        interactions.Option(
+            name="num_of_words",
+            description="Number of words in the summary (between 100 and 400).",
+            required=False,
+            type=interactions.OptionType.INTEGER,
+            min_value=100,
+            max_value=500
+        ),
+        interactions.Option(
+            name="text_content",
+            description="Input text or a URL.",
+            required=False,
+            type=interactions.OptionType.STRING,
+        ),
+        interactions.Option(
+            name="attachment",
+            description="Upload a file with text.",
+            required=False,
+            type=interactions.OptionType.ATTACHMENT,
+        )
+    ]
 )
         
-async def summarize(ctx: SlashContext, num_of_words: int = 200, text_content: str = "", attachment: bytes = None):
+async def summarize(ctx: interactions.CommandContext, num_of_words: int = 200, text_content: str = "", attachment: bytes = None):
 
     #Command takes a bit so allow the bot to stall
     await ctx.defer()
@@ -232,4 +229,4 @@ async def summarize(ctx: SlashContext, num_of_words: int = 200, text_content: st
 #         await message.channel.send('helloooooooo :)')
 
 # Run the bot
-bot.start(os.environ.get("DISCORD_TOKEN"))
+bot.start()
