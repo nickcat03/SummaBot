@@ -12,4 +12,4 @@ requests==2.26.0
 google-api-python-client==2.31.0  # Specify a version
 google-auth-oauthlib==0.4.6
 youtube-transcript-api==0.4.1
-interactions
+discord-py-interactions
