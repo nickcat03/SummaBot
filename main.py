@@ -8,8 +8,8 @@ import os
 from youtube_transcript_api import YouTubeTranscriptApi 
 from utils import *
 
-#bot = interactions.Client(token=os.environ.get("DISCORD_TOKEN"))
-TOKEN = json.load(open("keys.json"))
+bot = interactions.Client(token=os.environ.get("DISCORD_TOKEN"))
+#TOKEN = json.load(open("keys.json"))
 
 # @interactions.listen()
 # async def on_startup():
