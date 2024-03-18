@@ -13,7 +13,6 @@ import os
 from youtube_transcript_api import YouTubeTranscriptApi 
 from utils import *
 
-
 bot = Client(intents=Intents.DEFAULT)
 TOKEN = json.load(open("keys.json"))
 
