@@ -1,5 +1,5 @@
 import interactions
-from interactions import Client, Intents, listen, slash_command, SlashContext, OptionType, slash_option
+from interactions import Client, Intents, slash_command, SlashContext, OptionType, slash_option
 import requests
 import json
 import re
