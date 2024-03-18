@@ -11,9 +11,6 @@ yarl==1.8.2
 requests==2.26.0
 youtube-transcript-api==0.4.1
 discord-py-interactions
-<<<<<<< HEAD
 bs4
 python-docx
 python-pptx
-=======
->>>>>>> 64048e4673fd3f6e6a60f282eafa6467555406f3
