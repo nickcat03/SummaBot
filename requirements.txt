@@ -23,3 +23,6 @@ regex==2022.2.22
 beautifulsoup4==4.10.0
 python-docx==0.9.3
 python-pptx==0.7.0
+google-api-python-client  
+google-auth-oauthlib==0.4.6  
+youtube-transcript-api==0.4.1  

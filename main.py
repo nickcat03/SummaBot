@@ -232,4 +232,4 @@ async def summarize(ctx: SlashContext, num_of_words: int = 200, text_content: st
 #         await message.channel.send('helloooooooo :)')
 
 # Run the bot
-bot.start(TOKEN["token"])
+bot.start(os.environ.get("DISCORD_TOKEN"))
