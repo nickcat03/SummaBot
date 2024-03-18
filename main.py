@@ -1,281 +1,236 @@
-# This example requires the 'message_content' privileged intents
-
+import interactions
+from interactions import Client, Intents, listen, slash_command, SlashContext, OptionType, slash_option
 import requests
 import json
-import discord
-import os
-from os import getenv
-from discord import app_commands
-from discord.ext import commands
-from discord.ext.commands import cooldown, BucketType
-from discord.app_commands import Choice
 import re
 from bs4 import BeautifulSoup
-from docx import Document
-from pptx import Presentation
-import io
+from googleapiclient.discovery import build
+import google_auth_oauthlib.flow
+from google_auth_oauthlib.flow import InstalledAppFlow
+import googleapiclient.discovery
+import googleapiclient.errors
+import os
+from youtube_transcript_api import YouTubeTranscriptApi 
+from utils import *
 
 
-def extract_text_from_docx(docx_bytes):
-    doc = Document(io.BytesIO(docx_bytes))
-    text = ''
-    for paragraph in doc.paragraphs:
-        text += paragraph.text + '\n'
-    return text
+bot = Client(intents=Intents.DEFAULT)
+TOKEN = json.load(open("keys.json"))
 
-def extract_text_from_pptx(pptx_bytes):
-    prs = Presentation(io.BytesIO(pptx_bytes))
-    text = ''
-    for slide in prs.slides:
-        for shape in slide.shapes:
-            if hasattr(shape, "text"):
-                text += shape.text + '\n'
-    return text
+@interactions.listen()
+async def on_startup():
+    print("Bot ready.")
 
+@slash_command(name="my_command", description="My first command :)")
+async def my_command_function(ctx: SlashContext):
+    await ctx.send("Hello World")
 
-#KEYS = json.load(open("keys.json"))
+#Summarize command
+@slash_command(
+        name="summarize",
+        description="Generate a summary from text or a file.",
+)
+@slash_option(
+    name="num_of_words",
+    description="Number of words in the summary (between 100 and 400).",
+    required=False,
+    opt_type=OptionType.INTEGER,
+    min_value=100,
+    max_value=500
+)
+@slash_option(
+    name="text_content",
+    description="Input text or a URL.",
+    required=False,
+    opt_type=OptionType.STRING,
+)
+@slash_option(
+    name="attachment",
+    description="Upload a file with text.",
+    required=False,
+    opt_type=OptionType.ATTACHMENT,
+)
+        
+async def summarize(ctx: SlashContext, num_of_words: int = 200, text_content: str = "", attachment: bytes = None):
 
-# Initialize Discord bot intents with default settings, including basic events like join/leave.
-intents = discord.Intents.default()
+    #Command takes a bit so allow the bot to stall
+    await ctx.defer()
 
-# Enable the bot to read message content, necessary for responding to user messages.
-intents.message_content = True
+    initial_text = text_content
 
-# Create a bot instance with a command prefix '!', ready to handle commands and intents.
-client = commands.Bot(command_prefix="!", intents=intents)
+    media = "text"
+    youtube_url_pattern = r'(?:https?://)?(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/)([a-zA-Z0-9_-]{11})'
+    youtube_match = re.search(youtube_url_pattern, text_content)
+    is_URL = True
 
+    #User input text
+    if text_content:
+        #Check if input is a YouTube URL
+        if youtube_match:
+            try:
+                video_id = youtube_match.group(1)
 
-# # This is a slash command that calls the GPT-3 API to generate a response and sends it back to the user on discord
-# @client.tree.command(name='query_gpt', description='Ask GPT a question')
-# @app_commands.describe(query = "Ask GPT a question")
-# @app_commands.checks.cooldown(1, 60, key=lambda i: (i.guild_id, i.user.id)) # This prevents people from spamming the command. They can only use it once every 60 seconds.
-# async def query_gpt(interaction: discord.Interaction, query: str):
-    
-#     completion = openai_client.chat.completions.create(
-#         model="gpt-3.5-turbo",
-#         messages = [
-#             {"role": "system", "content": "You are a helpful assistant"},
-#             {"role": "user", "content": query}
-#         ],
-#     )
-    
-#     response = completion.choices[0].message.content
-#     await interaction.response.send_message(response)
-    
+                transcript = YouTubeTranscriptApi.get_transcript(video_id)
 
-# Helper function to encode images to base64.
-# Used to send images to the GPT-4 Vision API.
-# def encode_image(image_path):
-#     with open(image_path, "rb") as image_file:
-#         return base64.b64encode(image_file.read()).decode('utf-8')
+                # Combine text from each item in the transcript into a single string
+                transcript_string = ' '.join(item['text'] for item in transcript)
 
-@client.event
-async def on_message(message):
-    # If bot sends a command, don't run it as itself
-
-    # Set default number of words
-    num_of_words = 400
-
-    if message.author == client.user:
-        return
-  
-    # Generate summary from text
-    if message.content.lower().startswith('summarize'):
-        split_message = message.content.split()
-        input_text = ''
-
-        # Check for attachments
-        if message.attachments:
-            # Assuming only one attachment is allowed
-            attachment = message.attachments[0]
-            file_extension = attachment.filename.split('.')[-1].lower()
-
-            if file_extension == 'txt':
-                # Text file
-                attachment_content = await attachment.read()
-                input_text = attachment_content.decode('utf-8')
-            elif file_extension in ['doc', 'docx']:
-                # Word document
-                attachment_content = await attachment.read()
-                input_text = extract_text_from_docx(attachment_content)
-            elif file_extension == 'pptx':
-                # PowerPoint document
-                attachment_content = await attachment.read()
-                input_text = extract_text_from_pptx(attachment_content)
-            else:
-                await message.channel.send("Invalid attachment format. Please attach a .txt, .doc, .docx, or .pptx file.")
+                # Append the transcript string to the existing text content
+                text_content += '\n' + transcript_string
+                media = "video"
+            except Exception as e:
+                await ctx.send("An error has occured obtaining the contents of this video. This is either because the URL sent is invalid, or the video does not have closed captions.")
                 return
-
-        else:
-            input_text = ' '.join(split_message[2:])  # Extract the text or URL from the message
-
-        # Check if the user has provided the number of words
-        try:
-            if len(split_message) > 1:
-                num_of_words = int(split_message[1])
-                if num_of_words < 100 or num_of_words > 1000:
-                    await message.channel.send("Number of words should be between 100 and 1000.")
-                    return
-        except ValueError:
-            await message.channel.send("Invalid command format. Please use 'summarize [num_of_words] (text or URL)' to generate summaries.")
-            return
-
-        # Check if the input is a URL
-        if re.match(r'https?://\S+', input_text):
+        #Check if input is a standard URL
+        elif re.match(r'https?://\S+', text_content):
             # If it's a URL, fetch content from the URL
             try:
-                response = requests.get(input_text)
+                response = requests.get(text_content)
                 response.raise_for_status()  # Raise an exception for HTTP errors
                 html_content = response.text
                 soup = BeautifulSoup(html_content, 'html.parser')
                 text_content = soup.get_text()
             except requests.exceptions.RequestException as e:
-                await message.channel.send(f"Error: {e}")
+                #await ctx.send(f"Error: {e}")
                 return
         else:
-            # If it's not a URL, use the input text directly
-            text_content = input_text
+            #If it is not a URL, leave the text content alone
+            is_URL = False
 
-        print(text_content)
-        payload = {
-            "model": "google/gemma-7b-it:free",
-            "messages": [
-                {
-                    "role": "user",
-                    "content": f"You are a journalist. Summarize the following, make sure the summary is concise. Only write {num_of_words} words, and do not exceed 2000 characters. Do not give me other information outside of those paragraphs: {text_content}."
-                }
-            ]
-        }
+    
+    #User input a file
+    elif attachment:
+        is_URL = False
+        # Assuming only one attachment is allowed
+        file_extension = attachment.filename.split('.')[-1].lower()
 
-        try:
-            response = requests.post(
-                url="https://openrouter.ai/api/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer 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",
-                },
-                data=json.dumps(payload)
-            )
-
-            summary = response.json()['choices'][0]['message']['content']
-            print("SUMMARY:", summary)
-            
-            await message.channel.send(summary)
-
-        except Exception as e:
-            await message.channel.send(f"An error occurred: {str(e)}")
-        
-
-    #generate questions from text
-    if message.content.lower().startswith('questions'):
-        # Split the message content by spaces
-        split_message = message.content.split()
-        
-        # Extract the number of questions and text content from the message
-        try:
-            num_questions = int(split_message[1])  # Extract the number from the message
-            input_text = ' '.join(split_message[2:])  # Extract the text content after the number
-        except (ValueError, IndexError):
-            await message.channel.send("Invalid command format. Please use 'questions [number] (text)' to generate questions.")
-            return
-        
-        # Check for attachments
-        if message.attachments:
-            # Assuming only one attachment is allowed
-            attachment = message.attachments[0]
-            file_extension = attachment.filename.split('.')[-1].lower()
-
-            if file_extension == 'txt':
-                # Text file
-                attachment_content = await attachment.read()
-                input_text = attachment_content.decode('utf-8')
-            elif file_extension in ['doc', 'docx']:
-                # Word document
-                attachment_content = await attachment.read()
-                input_text = extract_text_from_docx(attachment_content)
-            elif file_extension == 'pptx':
-                # PowerPoint document
-                attachment_content = await attachment.read()
-                input_text = extract_text_from_pptx(attachment_content)
-            else:
-                await message.channel.send("Invalid attachment format. Please attach a .txt, .doc, .docx, or .pptx file.")
-                return
-
+        if file_extension == 'txt':
+            # Text file
+            attachment_url = attachment.url
+            attachment_content = await download_file(attachment_url)
+            text_content = attachment_content.decode('utf-8')
+        elif file_extension in ['doc', 'docx']:
+            # Word document
+            attachment_url = attachment.url
+            attachment_content = await download_file(attachment_url)
+            text_content = extract_text_from_docx(attachment_content)
+            media = "document"
+        elif file_extension == 'pptx':
+            # PowerPoint document
+            attachment_url = attachment.url
+            attachment_content = await download_file(attachment_url)
+            text_content = extract_text_from_pptx(attachment_content)
+            media = "PowerPoint"
         else:
-            input_text = ' '.join(split_message[2:])  # Extract the text or URL from the message
-        
-        if re.match(r'https?://\S+', input_text):
-            # If it's a URL, fetch content from the URL
-            try:
-                response = requests.get(input_text)
-                response.raise_for_status()  # Raise an exception for HTTP errors
-                html_content = response.text
-            except requests.exceptions.RequestException as e:
-                await message.channel.send(f"Error: {e}")
-                return
-
-            # Parse HTML content to extract text
-            soup = BeautifulSoup(html_content, 'html.parser')
-            text_content = soup.get_text()
-        else:
-            # If it's not a URL, use the input text directly
-            text_content = input_text
-
-        payload = {
-            "model": "google/gemma-7b-it:free",
-            "messages": [
-                {
-                    "role": "user",
-                    "content": f"You are a helpful assistant. Generate {num_questions} questions based on the following. Do not use any other reference, only utilize the text given here: {text_content}. When generaating your response, do not write anything else. Only send the questions. When generating questions, space them out with one single line break, do not use multiple. Generate {num_questions} questions."
-                }
-            ]
-        }
-
-        try:
-            response = requests.post(
-                url="https://openrouter.ai/api/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer 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",
-                },
-                data=json.dumps(payload)
-            )
-
-            questions = response.json()['choices'][0]['message']['content']
-            print("SUMMARY:", questions)
-            
-            await message.channel.send(questions)
-
-        except Exception as e:
-            print("Error:", e)
-            await message.channel.send("An error has occured.")
+            await ctx.send("Invalid attachment format. Please attach a .txt, .doc, .docx, or .pptx file.")
             return
 
-                
-    # Test command to respond with "hello" when user types "hi"
-    if message.content.lower() == 'hi':
-        await message.channel.send('helloooooooo :)')
-
-
-
-
-# Decorator to register an error handler for application command errors in the bot
-@client.tree.error
-async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
-    # Check if the error is a command cooldown error
-    if isinstance(error, app_commands.CommandOnCooldown):
-        # Send an ephemeral message informing the user of the cooldown with the remaining time
-        await interaction.response.send_message(f"Please wait for {round(error.retry_after, 0)} seconds before running the command again!", ephemeral=True)
     else:
-        # [Optional: Modify this part to handle other types of errors appropriately]
-        # Currently, sends the same cooldown message for all types of errors, which may not be intended
-        await interaction.response.send_message(f"Please wait for {round(error.retry_after, 0)} seconds before running the command again!", ephemeral=True)
+        await ctx.send(f"Please provide content for me to summarize.")
+        return
+    
+    print("Text content:", text_content)
+    length = get_length(num_of_words)
 
+    payload = {
+        "model": "google/gemma-7b-it:free",
+        "messages": [
+            {
+                "role": "user",
+                "content": f"You are an excellent summarizer, and are tailored in summarizing documents in a concise way without including your own opinions or outside information. Do not give me other information outside of the {media}. When summarizing, do not assume any information if it isn't explicitly mentioned in the source {media}. Do not assume pronouns if they aren't stated in the text already, and default to they them if needed. Here is the {media}: {text_content}. Please write a {length} summary of {num_of_words} words, and do not exceed 2000 characters. Do not include your own opinions or outside information not mentioned in the {media}, do not assume anything if it didn't happen in the source. Do not mention the word count or any instance of my prompt in your summary."
+            }
+        ]
+    }
 
+    try:
+        response = requests.post(
+            url="https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer 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",
+            },
+            data=json.dumps(payload)
+        )
 
-# This is the code that runs the bot.
-# Make sure to replace the DISCORD_TOKEN below with your bot's token.
-# Get your bot token from the discord developer portal: https://discordapp.com/developers/applications/
-# Use these articles to help you get started:
-#  https://www.writebots.com/discord-bot-token/
-#  https://realpython.com/how-to-make-a-discord-bot-python/
+        summary = response.json()['choices'][0]['message']['content']
+        if len(summary) > 2000:
+            summary = summary[:1800]
+            summary += "\nThis summary exceeded over 2000 characters."
+        if is_URL:
+            summary += f"\n\nSource: {initial_text}"
+        await ctx.send(summary)
 
-client.run(os.environ["DISCORD_TOKEN"])
+    except Exception as e:
+        pass
+        #await ctx.send(f"An error occurred: {str(e)}")
+
+# @slash.slash(name="questions",
+#              description="Generate questions from text or a file",
+#              options=[
+#                  interactions.Option(
+#                      name="num_of_questions",
+#                      description="Number of questions to generate",
+#                      option_type=4,
+#                      required=True
+#                  ),
+#                  interactions.Option(
+#                      name="content",
+#                      description="Text content or upload a file",
+#                      option_type=3,
+#                      required=True
+#                  )
+#              ])
+# async def generate_questions(ctx: interactions.SlashContext, num_of_questions: int, content: str):
+#     # Check if the input is a URL
+#     if re.match(r'https?://\S+', content):
+#         # If it's a URL, fetch content from the URL
+#         try:
+#             response = requests.get(content)
+#             response.raise_for_status()  # Raise an exception for HTTP errors
+#             html_content = response.text
+#         except requests.exceptions.RequestException as e:
+#             await ctx.send(f"Error: {e}")
+#             return
+
+#         # Parse HTML content to extract text
+#         soup = BeautifulSoup(html_content, 'html.parser')
+#         text_content = soup.get_text()
+#     else:
+#         # If it's not a URL, use the input text directly
+#         text_content = content
+
+#     payload = {
+#         "model": "google/gemma-7b-it:free",
+#         "messages": [
+#             {
+#                 "role": "user",
+#                 "content": f"You are a helpful assistant. Generate {num_of_questions} questions based on the following. Do not use any other reference, only utilize the text given here: {text_content}. When generaating your response, do not write anything else. Only send the questions. When generating questions, space them out with one single line break, do not use multiple. Generate {num_of_questions} questions."
+#             }
+#         ]
+#     }
+
+#     try:
+#         response = requests.post(
+#             url="https://openrouter.ai/api/v1/chat/completions",
+#             headers={
+#                 "Authorization": f"Bearer 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",
+#             },
+#             data=json.dumps(payload)
+#         )
+
+#         questions = response.json()['choices'][0]['message']['content']
+#         await ctx.send(questions)
+
+#     except Exception as e:
+#         await ctx.send("An error has occurred.")
+
+# @bot.event
+# async def on_message(message):
+#     if message.author == bot.user:
+#         return
+
+#     # Test command to respond with "hello" when user types "hi"
+#     if message.content.lower() == 'hi':
+#         await message.channel.send('helloooooooo :)')
+
+# Run the bot
+bot.start("MTIxODU4ODQ0NzQwNTY0MTc0OA.G1MlZP.kihkrAyZbda7d46oDN_LViI3T9tlJ3W5Kq3ujE")
