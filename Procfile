@@ -1,1 +1,1 @@
-web: pip install --upgrade pip && python main.py
+web: pip install --upgrade pip && pip install -U discord-py-interactions && python main.py
