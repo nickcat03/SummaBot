@@ -9,7 +9,7 @@ from youtube_transcript_api import YouTubeTranscriptApi
 from utils import *
 
 bot = interactions.Client(token=os.environ.get("DISCORD_TOKEN"))
-OPEN_BORDER_KEY = os.environ.get("OPEN_BORDER_KEY")
+OPEN_ROUTER_KEY = os.environ.get("OPEN_ROUTER_KEY")
 #TOKEN = json.load(open("keys.json"))
 
 # @interactions.listen()
@@ -34,7 +34,7 @@ OPEN_BORDER_KEY = os.environ.get("OPEN_BORDER_KEY")
             max_value=500
         ),
         interactions.Option(
-            name="text_content",
+            name="text",
             description="Input text or a URL.",
             required=False,
             type=interactions.OptionType.STRING,
@@ -48,12 +48,13 @@ OPEN_BORDER_KEY = os.environ.get("OPEN_BORDER_KEY")
     ]
 )
         
-async def summarize(ctx: interactions.CommandContext, num_of_words: int = 200, text_content: str = "", attachment: bytes = None):
+async def summarize(ctx: interactions.CommandContext, num_of_words: int = 200, text: str = "", attachment: bytes = None):
 
     #Command takes a bit so allow the bot to stall
     await ctx.defer()
 
-    initial_text = text_content
+    initial_text = text
+    text_content = text
 
     media = "text"
     youtube_url_pattern = r'(?:https?://)?(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/)([a-zA-Z0-9_-]{11})'
@@ -143,7 +144,7 @@ async def summarize(ctx: interactions.CommandContext, num_of_words: int = 200, t
         response = requests.post(
             url="https://openrouter.ai/api/v1/chat/completions",
             headers={
-                "Authorization": f"Bearer {OPEN_BORDER_KEY}",
+                "Authorization": f"Bearer {OPEN_ROUTER_KEY}",
             },
             data=json.dumps(payload)
         )
@@ -209,7 +210,7 @@ async def summarize(ctx: interactions.CommandContext, num_of_words: int = 200, t
 #         response = requests.post(
 #             url="https://openrouter.ai/api/v1/chat/completions",
 #             headers={
-#                 "Authorization": f"Bearer {OPEN_BORDER_KEY}",
+#                 "Authorization": f"Bearer {OPEN_ROUTER_KEY}",
 #             },
 #             data=json.dumps(payload)
 #         )
