@@ -9,6 +9,7 @@ from youtube_transcript_api import YouTubeTranscriptApi
 from utils import *
 
 bot = interactions.Client(token=os.environ.get("DISCORD_TOKEN"))
+OPEN_BORDER_KEY = os.environ.get("OPEN_BORDER_KEY")
 #TOKEN = json.load(open("keys.json"))
 
 # @interactions.listen()
@@ -142,7 +143,7 @@ async def summarize(ctx: interactions.CommandContext, num_of_words: int = 200, t
         response = requests.post(
             url="https://openrouter.ai/api/v1/chat/completions",
             headers={
-                "Authorization": f"Bearer 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",
+                "Authorization": f"Bearer {OPEN_BORDER_KEY}",
             },
             data=json.dumps(payload)
         )
@@ -208,7 +209,7 @@ async def summarize(ctx: interactions.CommandContext, num_of_words: int = 200, t
 #         response = requests.post(
 #             url="https://openrouter.ai/api/v1/chat/completions",
 #             headers={
-#                 "Authorization": f"Bearer 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",
+#                 "Authorization": f"Bearer {OPEN_BORDER_KEY}",
 #             },
 #             data=json.dumps(payload)
 #         )
