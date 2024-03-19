@@ -26,7 +26,7 @@ OPEN_ROUTER_KEY = os.environ.get("OPEN_ROUTER_KEY")
     description="Generate a summary from text or a file.",
     options=[
         interactions.Option(
-            name="num_of_words",
+            name="word_count",
             description="Number of words in the summary (between 100 and 400).",
             required=False,
             type=interactions.OptionType.INTEGER,
@@ -48,21 +48,20 @@ OPEN_ROUTER_KEY = os.environ.get("OPEN_ROUTER_KEY")
     ]
 )
         
-async def summarize(ctx: interactions.CommandContext, num_of_words: int = 200, text: str = "", attachment: bytes = None):
+async def summarize(ctx: interactions.CommandContext, word_count: int = 200, text: str = "", attachment: bytes = None):
 
     #Command takes a bit so allow the bot to stall
     await ctx.defer()
 
     initial_text = text
-    text_content = text
 
     media = "text"
     youtube_url_pattern = r'(?:https?://)?(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/)([a-zA-Z0-9_-]{11})'
-    youtube_match = re.search(youtube_url_pattern, text_content)
+    youtube_match = re.search(youtube_url_pattern, text)
     is_URL = True
 
     #User input text
-    if text_content:
+    if text:
         #Check if input is a YouTube URL
         if youtube_match:
             try:
@@ -74,20 +73,20 @@ async def summarize(ctx: interactions.CommandContext, num_of_words: int = 200, t
                 transcript_string = ' '.join(item['text'] for item in transcript)
 
                 # Append the transcript string to the existing text content
-                text_content += '\n' + transcript_string
+                text += '\n' + transcript_string
                 media = "video"
             except Exception as e:
                 await ctx.send("An error has occured obtaining the contents of this video. This is either because the URL sent is invalid, or the video does not have closed captions.")
                 return
         #Check if input is a standard URL
-        elif re.match(r'https?://\S+', text_content):
+        elif re.match(r'https?://\S+', text):
             # If it's a URL, fetch content from the URL
             try:
-                response = requests.get(text_content)
+                response = requests.get(text)
                 response.raise_for_status()  # Raise an exception for HTTP errors
                 html_content = response.text
                 soup = BeautifulSoup(html_content, 'html.parser')
-                text_content = soup.get_text()
+                text = soup.get_text()
             except requests.exceptions.RequestException as e:
                 #await ctx.send(f"Error: {e}")
                 return
@@ -106,18 +105,18 @@ async def summarize(ctx: interactions.CommandContext, num_of_words: int = 200, t
             # Text file
             attachment_url = attachment.url
             attachment_content = await download_file(attachment_url)
-            text_content = attachment_content.decode('utf-8')
+            text = attachment_content.decode('utf-8')
         elif file_extension in ['doc', 'docx']:
             # Word document
             attachment_url = attachment.url
             attachment_content = await download_file(attachment_url)
-            text_content = extract_text_from_docx(attachment_content)
+            text = extract_text_from_docx(attachment_content)
             media = "document"
         elif file_extension == 'pptx':
             # PowerPoint document
             attachment_url = attachment.url
             attachment_content = await download_file(attachment_url)
-            text_content = extract_text_from_pptx(attachment_content)
+            text = extract_text_from_pptx(attachment_content)
             media = "PowerPoint"
         else:
             await ctx.send("Invalid attachment format. Please attach a .txt, .doc, .docx, or .pptx file.")
@@ -127,15 +126,15 @@ async def summarize(ctx: interactions.CommandContext, num_of_words: int = 200, t
         await ctx.send(f"Please provide content for me to summarize.")
         return
     
-    print("Text content:", text_content)
-    length = get_length(num_of_words)
+    print("Text content:", text)
+    length = get_length(word_count)
 
     payload = {
         "model": "google/gemma-7b-it:free",
         "messages": [
             {
                 "role": "user",
-                "content": f"You are an excellent summarizer, and are tailored in summarizing documents in a concise way without including your own opinions or outside information. Do not give me other information outside of the {media}. When summarizing, do not assume any information if it isn't explicitly mentioned in the source {media}. Do not assume pronouns if they aren't stated in the text already, and default to they them if needed. Here is the {media}: {text_content}. Please write a {length} summary of {num_of_words} words, and do not exceed 2000 characters. Do not include your own opinions or outside information not mentioned in the {media}, do not assume anything if it didn't happen in the source. Do not mention the word count or any instance of my prompt in your summary."
+                "content": f"You are an excellent summarizer, and are tailored in summarizing documents in a concise way without including your own opinions or outside information. Do not give me other information outside of the {media}. When summarizing, do not assume any information if it isn't explicitly mentioned in the source {media}. Do not assume pronouns if they aren't stated in the text already, and default to they them if needed. Here is the {media}: {text}. Please write a {length} summary of {word_count} words, and do not exceed 2000 characters. Do not include your own opinions or outside information not mentioned in the {media}, do not assume anything if it didn't happen in the source. Do not mention the word count or any instance of my prompt in your summary."
             }
         ]
     }
@@ -191,17 +190,17 @@ async def summarize(ctx: interactions.CommandContext, num_of_words: int = 200, t
 
 #         # Parse HTML content to extract text
 #         soup = BeautifulSoup(html_content, 'html.parser')
-#         text_content = soup.get_text()
+#         text = soup.get_text()
 #     else:
 #         # If it's not a URL, use the input text directly
-#         text_content = content
+#         text = content
 
 #     payload = {
 #         "model": "google/gemma-7b-it:free",
 #         "messages": [
 #             {
 #                 "role": "user",
-#                 "content": f"You are a helpful assistant. Generate {num_of_questions} questions based on the following. Do not use any other reference, only utilize the text given here: {text_content}. When generaating your response, do not write anything else. Only send the questions. When generating questions, space them out with one single line break, do not use multiple. Generate {num_of_questions} questions."
+#                 "content": f"You are a helpful assistant. Generate {num_of_questions} questions based on the following. Do not use any other reference, only utilize the text given here: {text}. When generaating your response, do not write anything else. Only send the questions. When generating questions, space them out with one single line break, do not use multiple. Generate {num_of_questions} questions."
 #             }
 #         ]
 #     }
