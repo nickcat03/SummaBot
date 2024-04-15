@@ -13,7 +13,3 @@ youtube-transcript-api==0.4.1
 bs4
 python-docx
 python-pptx
-pdf2image
-pytesseract
-openpyxl
-python-magic-bin
