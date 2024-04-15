@@ -8,17 +8,19 @@ import os
 from youtube_transcript_api import YouTubeTranscriptApi 
 from utils import *
 
-bot = interactions.Client(token=os.environ.get("DISCORD_TOKEN"))
-OPEN_ROUTER_KEY = os.environ.get("OPEN_ROUTER_KEY")
-#TOKEN = json.load(open("keys.json"))
+#Switch this if bot is being tested locally. Don't use railway instance if tests are being done.
+testing_bot = False
 
-# @interactions.listen()
-# async def on_startup():
-#     print("Bot ready.")
+if testing_bot:
+    KEYS = json.load(open("keys.json"))
+    DISCORD_TOKEN = KEYS["DISCORD_TOKEN"]
+    OPEN_ROUTER_KEY = KEYS["OPEN_ROUTER_KEY"]
+else:
+    DISCORD_TOKEN = os.environ.get("DISCORD_TOKEN")
+    OPEN_ROUTER_KEY = os.environ.get("OPEN_ROUTER_KEY")
 
-# @bot.command(name="my_command", description="My first command :)")
-# async def my_command_function(ctx: SlashContext):
-#     await ctx.send("Hello World")
+bot = interactions.Client(token=DISCORD_TOKEN)
+
 
 #Summarize command
 @bot.command(
@@ -80,15 +82,36 @@ async def summarize(ctx: interactions.CommandContext, word_count: int = 200, tex
                 return
         #Check if input is a standard URL
         elif re.match(r'https?://\S+', text):
-            # If it's a URL, fetch content from the URL
             try:
-                response = requests.get(text)
-                response.raise_for_status()  # Raise an exception for HTTP errors
-                html_content = response.text
-                soup = BeautifulSoup(html_content, 'html.parser')
-                text = soup.get_text()
+                response = requests.head(text, allow_redirects=True)
+                #Check if the URL is a direct link to a downloadable file
+                if 'Content-Disposition' in response.headers:
+                    # If the response contains Content-Disposition header, it's likely a download link
+                    # Setting this to false as the document is not an embeddable website
+                    is_URL = False
+                    # Fetch content from the URL
+                    response = requests.get(text)
+                    response.raise_for_status()  # Raise an exception for HTTP errors
+                    attachment = response.content
+
+                    content = await get_file_content(attachment)
+                    #If file format is not supported
+                    if content == False:
+                        await ctx.send("Invalid attachment format. Please attach a valid file type.")
+                    else:
+                        text = content[0]
+                        media = content[1]
+                    media = "attachment"
+                else:
+                    # It's a standard URL, fetch content from it
+                    response = requests.get(text)
+                    response.raise_for_status()  # Raise an exception for HTTP errors
+                    html_content = response.text
+                    soup = BeautifulSoup(html_content, 'html.parser')
+                    text = soup.get_text()
             except requests.exceptions.RequestException as e:
-                #await ctx.send(f"Error: {e}")
+                # Handle errors
+                # await ctx.send(f"Error: {e}")
                 return
         else:
             #If it is not a URL, leave the text content alone
@@ -98,43 +121,35 @@ async def summarize(ctx: interactions.CommandContext, word_count: int = 200, tex
     #User input a file
     elif attachment:
         is_URL = False
-        # Assuming only one attachment is allowed
-        file_extension = attachment.filename.split('.')[-1].lower()
-
-        if file_extension == 'txt':
-            # Text file
-            attachment_url = attachment.url
-            attachment_content = await download_file(attachment_url)
-            text = attachment_content.decode('utf-8')
-        elif file_extension in ['doc', 'docx']:
-            # Word document
-            attachment_url = attachment.url
-            attachment_content = await download_file(attachment_url)
-            text = extract_text_from_docx(attachment_content)
-            media = "document"
-        elif file_extension == 'pptx':
-            # PowerPoint document
-            attachment_url = attachment.url
-            attachment_content = await download_file(attachment_url)
-            text = extract_text_from_pptx(attachment_content)
-            media = "PowerPoint"
+        content = await get_file_content(attachment)
+        #If file format is not supported
+        if content == False:
+            await ctx.send("Invalid attachment format. Please attach a valid file type.")
         else:
-            await ctx.send("Invalid attachment format. Please attach a .txt, .doc, .docx, or .pptx file.")
-            return
+            text = content[0]
+            media = content[1]
 
     else:
         await ctx.send(f"Please provide content for me to summarize.")
         return
     
-    print("Text content:", text)
+    #print("Text content:", text)
     length = get_length(word_count)
+    prompt = f"""You are an excellent summarizer, and are tailored in summarizing documents in a concise way without 
+    including your own opinions or outside information. Do not give me other information outside of the {media}. When 
+    summarizing, do not assume any information if it isn't explicitly mentioned in the source {media}. Do not assume 
+    pronouns if they aren't stated in the text already, and default to they/them if needed. Here is the {media}: {text}. 
+    Please write a {length} summary of {word_count} words, and do not exceed 2000 characters. Do not include your own 
+    opinions or outside information not mentioned in the {media}, do not assume anything if it didn't happen in the 
+    source. Do not mention the word count or any instance of my prompt in your summary. Include a concise 
+    title for your summary."""
 
     payload = {
         "model": "google/gemma-7b-it:free",
         "messages": [
             {
                 "role": "user",
-                "content": f"You are an excellent summarizer, and are tailored in summarizing documents in a concise way without including your own opinions or outside information. Do not give me other information outside of the {media}. When summarizing, do not assume any information if it isn't explicitly mentioned in the source {media}. Do not assume pronouns if they aren't stated in the text already, and default to they them if needed. Here is the {media}: {text}. Please write a {length} summary of {word_count} words, and do not exceed 2000 characters. Do not include your own opinions or outside information not mentioned in the {media}, do not assume anything if it didn't happen in the source. Do not mention the word count or any instance of my prompt in your summary."
+                "content": prompt
             }
         ]
     }
@@ -151,7 +166,7 @@ async def summarize(ctx: interactions.CommandContext, word_count: int = 200, tex
         summary = response.json()['choices'][0]['message']['content']
         if len(summary) > 2000:
             summary = summary[:1800]
-            summary += "\nThis summary exceeded over 2000 characters."
+            summary += "...\nThis summary exceeded over 2000 characters."
         if is_URL:
             summary += f"\n\nSource: {initial_text}"
         await ctx.send(summary)
