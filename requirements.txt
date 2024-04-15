@@ -15,6 +15,5 @@ python-docx
 python-pptx
 pdf2image
 pytesseract
-re
 PIL
 magic
