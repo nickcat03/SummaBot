@@ -15,4 +15,3 @@ python-docx
 python-pptx
 pdf2image
 pytesseract
-magic
