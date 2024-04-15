@@ -7,10 +7,9 @@ import re
 import aiohttp
 import io
 from PIL import Image
-import speech_recognition as sr
-from moviepy.editor import VideoFileClip
+#import speech_recognition as sr
+#from moviepy.editor import VideoFileClip
 import magic
-import os
 
 def extract_text_from_docx(docx_bytes):
     doc = Document(io.BytesIO(docx_bytes))
@@ -72,7 +71,8 @@ async def extract_text_from_image(attachment_file):
         # Handle any exceptions
         print(f"Error: {e}")
         return None
-    
+
+'''
 async def extract_text_from_audio(audio_file):
     recognizer = sr.Recognizer()
     with sr.AudioFile(audio_file) as source:
@@ -86,6 +86,7 @@ async def extract_text_from_video(video_file):
     audio_clip.write_audiofile("temporary_audio.wav")
     text = await extract_text_from_audio("temporary_audio.wav")
     return text
+'''
 
 async def download_file(url):
     async with aiohttp.ClientSession() as session:
@@ -135,14 +136,17 @@ async def get_file_content(attachment):
         # Image file
         text = await extract_text_from_image(attachment_file)
         return [text, "text"]
+    else:
+        return False
+    '''
     elif 'audio' in file_type or any(ext in file_type for ext in ['wav', 'mp3', 'aac']):
         text = await extract_text_from_audio(attachment_directory)
         return [text, "audio"]
     elif 'video' in file_type or any(ext in file_type.encode() for ext in [b'.mp4', b'.avi', b'.mov', b'.mkv']):
         # Check if the filename ends with any of the specified video extensions
         text = await extract_text_from_video(attachment_directory)
-    else:
-        return False
+    '''
+    
 
 def extract_video_id(url):
     match = re.search(r'(?:https?://)?(?:www\.)?(?:youtube\.com/watch\?v=|youtu\.be/)([a-zA-Z0-9_-]{11})', url)
