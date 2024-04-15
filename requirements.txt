@@ -16,5 +16,4 @@ python-pptx
 pdf2image
 pytesseract
 openpyxl
-pylibmagic
-python-magic
+python-magic-bin
