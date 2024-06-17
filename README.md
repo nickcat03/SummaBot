@@ -1,27 +1,22 @@
----
-title: Discord Python bot
-description: A Discord bot written in Python
-tags:
-  - python
-  - discord.py
----
+SummarieAI is a work-in-progress Discord bot (and soon to be web application) that specializes in summarizing large text documents, audio files, and videos.
 
-# Discord.py Example
+# Components
+SummarieAI runs on Python and will require any of the dependencies listed in requirements.txt for it to run properly. It currently utilizes Google Gemma 7b as its AI model, but could be swapped for any other model if need be.
 
-This example starts a Discord bot using [discord.py](https://discordpy.readthedocs.io/en/stable/).
+# Supported Formats
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/new/template/PxM3nl)
+## This application is able to summarize the following:
+- Word documents
+- PowerPoint presentations
+- Text files
+- PDFs
+- Simple websites
+- YouTube videos with captions
 
-## ✨ Features
+## Planned support in the future:
+- Audio files
+- Video files
+- JavaScript-heavy websites
 
-- Python
-- Discord.py
-
-## 💁‍♀️ How to use
-
-- Install packages using `pip install -r requirements.txt`
-- Start the bot using `python main.py`
-
-## 📝 Notes
-
-This is a basic bot with the prefix `!`, more information can be founded at their [offical documentation](https://discordpy.readthedocs.io/en/stable/api.html).
+# Credits
+SummarieAI was developed by Nicholas Catapano, Christopher Bharat, Ryan Carrasco, and Jeremiah Henri.
