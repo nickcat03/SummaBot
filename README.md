@@ -18,5 +18,6 @@ SummarieAI runs on Python and will require any of the dependencies listed in req
 - Video files
 - JavaScript-heavy websites
 
-# Credits
+# Credits / Achievements
 SummarieAI was developed by Nicholas Catapano, Christopher Bharat, Ryan Carrasco, and Jeremiah Henri.
+SummarieAI won second place in the ACM x Headstarter 2024 Hackathon.
