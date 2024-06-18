@@ -8,9 +8,16 @@ import os
 from youtube_transcript_api import YouTubeTranscriptApi 
 from utils import *
 
-bot = interactions.Client(token=os.environ.get("DISCORD_TOKEN"))
-OPEN_ROUTER_KEY = os.environ.get("OPEN_ROUTER_KEY")
-#TOKEN = json.load(open("keys.json"))
+local_test = False
+
+if local_test:
+    TOKEN = json.load(open("keys.json"))
+    bot = interactions.Client(token=TOKEN["token"])
+    OPEN_ROUTER_KEY = TOKEN["openrouter"]
+
+else:
+    bot = interactions.Client(token=os.environ.get("DISCORD_TOKEN"))
+    OPEN_ROUTER_KEY = os.environ.get("OPEN_ROUTER_KEY")
 
 # @interactions.listen()
 # async def on_startup():
@@ -22,8 +29,8 @@ OPEN_ROUTER_KEY = os.environ.get("OPEN_ROUTER_KEY")
 
 #Summarize command
 @slash_command(
-        name="summarize",
-        description="Generate a summary from text or a file.",
+    name="summarize",
+    description="Generate a summary from text or a file."
 )
 @slash_option(
     name="num_of_words",
@@ -45,8 +52,7 @@ OPEN_ROUTER_KEY = os.environ.get("OPEN_ROUTER_KEY")
     required=False,
     opt_type=OptionType.ATTACHMENT,
 )
-
-async def summarize(ctx: SlashContext, num_of_words: int = 200, text_content: str = "", attachment: bytes = None):
+async def summarize(ctx: SlashContext, word_count: int = 200, text: str = "", attachment: bytes = None):
 
     #Command takes a bit so allow the bot to stall
     await ctx.defer()
