@@ -8,7 +8,7 @@ import os
 from youtube_transcript_api import YouTubeTranscriptApi 
 from utils import *
 
-local_test = True
+local_test = False
 
 if local_test:
     TOKEN = json.load(open("keys.json"))
