@@ -21,34 +21,32 @@ OPEN_ROUTER_KEY = os.environ.get("OPEN_ROUTER_KEY")
 #     await ctx.send("Hello World")
 
 #Summarize command
-@bot.command(
-    name="summarize",
-    description="Generate a summary from text or a file.",
-    options=[
-        interactions.Option(
-            name="word_count",
-            description="Number of words in the summary (between 100 and 400).",
-            required=False,
-            type=interactions.OptionType.INTEGER,
-            min_value=100,
-            max_value=500
-        ),
-        interactions.Option(
-            name="text",
-            description="Input text or a URL.",
-            required=False,
-            type=interactions.OptionType.STRING,
-        ),
-        interactions.Option(
-            name="attachment",
-            description="Upload a file with text.",
-            required=False,
-            type=interactions.OptionType.ATTACHMENT,
-        )
-    ]
+@slash_command(
+        name="summarize",
+        description="Generate a summary from text or a file.",
 )
-        
-async def summarize(ctx: interactions.CommandContext, word_count: int = 200, text: str = "", attachment: bytes = None):
+@slash_option(
+    name="num_of_words",
+    description="Number of words in the summary (between 100 and 400).",
+    required=False,
+    opt_type=OptionType.INTEGER,
+    min_value=100,
+    max_value=500
+)
+@slash_option(
+    name="text_content",
+    description="Input text or a URL.",
+    required=False,
+    opt_type=OptionType.STRING,
+)
+@slash_option(
+    name="attachment",
+    description="Upload a file with text.",
+    required=False,
+    opt_type=OptionType.ATTACHMENT,
+)
+
+async def summarize(ctx: SlashContext, num_of_words: int = 200, text_content: str = "", attachment: bytes = None):
 
     #Command takes a bit so allow the bot to stall
     await ctx.defer()
