@@ -8,7 +8,7 @@ import os
 from youtube_transcript_api import YouTubeTranscriptApi 
 from utils import *
 
-local_test = False
+local_test = True
 
 if local_test:
     TOKEN = json.load(open("keys.json"))
@@ -41,7 +41,7 @@ else:
     max_value=500
 )
 @slash_option(
-    name="text_content",
+    name="text",
     description="Input text or a URL.",
     required=False,
     opt_type=OptionType.STRING,
